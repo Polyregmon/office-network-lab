@@ -62,5 +62,5 @@ Built in VMware Workstation and GNS3.
 | Step | Description | Screenshot |
 |-------|-------------|------------|
 | 1 | DHCP configuration | <img width="836" height="656" alt="DHCP" src="https://github.com/user-attachments/assets/3338aafc-df57-4eaf-923f-9836c8531bf8" /> |
-| 2 | Wazuh alerts dashboard | ![Wazuh](screenshots/wazuh.png) |
-| 3 | Firewall rule table | ![Firewall](screenshots/firewall.png) |
+| 2 | Wazuh alerts dashboard | (https://github.com/user-attachments/assets/34365dd4-61bf-4a07-b612-33f2318513f1) |
+| 3 | Firewall rule table | (https://github.com/user-attachments/assets/e53f5d1b-26d6-4d31-a4e0-4ff04eb47690) |
