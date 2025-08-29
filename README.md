@@ -61,6 +61,6 @@ Built in VMware Workstation and GNS3.
 ## Screenshots
 | Step | Description | Screenshot |
 |-------|-------------|------------|
-| 1 | DHCP configuration | https://github.com/Polyregmon/office-network-lab/blob/main/docs/screenshots/DHCP.png |
+| 1 | DHCP configuration | https://github.com/Polyregmon/office-network-lab/blob/17eebd843f6f1677f70ba90bba4f35923730c613/docs/screenshots/DHCP.png |
 | 2 | Wazuh alerts dashboard | [<img width="836" height="656" alt="DHCP" src="https://github.com/user-attachments/assets/e53f5d1b-26d6-4d31-a4e0-4ff04eb47690" />](https://github.com/Polyregmon/office-network-lab/blob/main/docs/screenshots/Wazuh.jpg) |
 | 3 | Firewall rule table |[ <img width="836" height="656" alt="DHCP" src="https://github.com/user-attachments/assets/a38ef0aa-04d5-407f-a683-c28347dc3689" />](https://github.com/Polyregmon/office-network-lab/blob/main/docs/screenshots/Firewall%20Rules.jpg)|
