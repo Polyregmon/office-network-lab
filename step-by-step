@@ -1,0 +1,76 @@
+# راهنمای قدم‌به‌قدم لابراتوار «شبکه شرکت اداری»
+> Platform: VMware Workstation | Windows Server 2025 | Windows 11 | pfSense | Ubuntu (Wazuh)
+
+## فهرست
+1. پیش‌نیازها و طرح IP
+2. شبکه‌های VMware
+3. ساخت VMها
+4. پیکربندی پایه pfSense (کنسول) + قوانین و Syslog
+5. راه‌اندازی AD DS + DNS (Windows Server 2025)
+6. DHCP روی DC
+7. ساختار AD، گروه‌ها و کاربران (اسکریپت)
+8. File Server، NTFS/Share و Map درایوها با GPO
+9. Baseline امنیتی با GPO (Audit/Defender/NTP/SMBv1-)
+10. Join کلاینت Windows 11 به دامنه
+11. نصب Wazuh Server (Ubuntu)
+12. نصب Agent Wazuh روی ویندوزها + جمع‌آوری EventChannel
+13. Sysmon برای تله‌متری بیشتر
+14. ارسال لاگ pfSense به Wazuh (Syslog)
+15. تست‌های اعتبارسنجی (Blue Team)
+16. اسکرین‌شات‌های لازم و مستندسازی
+17. Git: ساختار ریپو و Push
+
+---
+
+## 1) پیش‌نیازها و طرح IP
+دامنه: corp.local  
+LAN: 10.10.10.50/24  
+- Gateway/Firewall (LAN): 10.10.10.51  
+- DC/DNS/DHCP/File: 10.10.10.52  
+- Wazuh (Ubuntu): 10.10.10.55  
+- Windows 11 Clients: DHCP 10.10.10.2–14
+
+---
+
+## 2) شبکه‌های VMware
+- VMnet8 (NAT) = WAN (اینترنت)
+- VMnet2 (Host-only) = LAN (`10.10.10.0/24`)
+- DHCP روی Host-only را خاموش کنید.
+
+---
+
+## 3) ساخت VMها
+- pfSense/OPNsense: 2 NIC → WAN=NAT, LAN=Host-only
+- Windows Server 2025 (DC/DNS/DHCP/File): 1 NIC روی LAN
+- Ubuntu 22.04+ (Wazuh): 1 NIC روی LAN
+- Windows 11 Client: 1 NIC روی LAN (DHCP)
+- Kali (اختیاری): 1 NIC روی LAN
+
+---
+
+## 4) pfSense (کنسول) + قوانین و Syslog
+### 4.1 کنسول (اولین بوت)
+از منوی کنسول:
+1. Assign Interfaces → WAN و LAN
+2. Set LAN IP Address → 192.168.50.1/24
+3. Enable/Disable DHCP on LAN → *Disable* (چون DHCP روی DC است)
+4. Reboot
+
+> حالا از کلاینت LAN با مرورگر به https://192.168.50.1 وارد وب‌اینترفیس شو (برای ساخت Ruleها).
+
+### 4.2 قوانین Firewall (LAN tab - Web)
+- Anti-Lockout را دست نزن.
+- یک Allow LAN → Any (برای سناریوی ساده) یا قوانین محدودکننده بساز.
+- اگر NAT اتوماتیک فعال است، اینترنت LAN برقرار می‌شود.
+
+### 4.3 Syslog به Wazuh (Web)
+Status/System Logs > Settings > Enable Remote Logging  
+Remote Syslog Server: 192.168.50.20:514/UDP  
+Facilities: firewall, system → Save
+
+> اگر فقط از کنسول اسکرین می‌گیری، همین مرحلهٔ 4.1 را اسکرین‌شات بگیر (منوی کنسول و ست‌کردن LAN IP).
+
+---
+
+## 5) AD DS + DNS (Windows Server 2025)
+IP ثابت بده:
