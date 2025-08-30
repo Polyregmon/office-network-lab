@@ -24,9 +24,9 @@
 
 ## 1) پیش‌نیازها و طرح IP
 دامنه: corp.local  
-LAN: 10.10.10.50/24  
-- Gateway/Firewall (LAN): 10.10.10.51  
-- DC/DNS/DHCP/File: 10.10.10.52  
+LAN: 10.10.10.48/24  
+- Gateway/Firewall (LAN): 10.10.10.49  
+- DC/DNS/DHCP/File: 10.10.10.50  
 - Wazuh (Ubuntu): 10.10.10.55  
 - Windows 11 Clients: DHCP 10.10.10.2–14
 
@@ -52,11 +52,11 @@ LAN: 10.10.10.50/24
 ### 4.1 کنسول (اولین بوت)
 از منوی کنسول:
 1. Assign Interfaces → WAN و LAN
-2. Set LAN IP Address → 192.168.50.1/24
+2. Set LAN IP Address → 10.10.254.1/24
 3. Enable/Disable DHCP on LAN → *Disable* (چون DHCP روی DC است)
 4. Reboot
 
-> حالا از کلاینت LAN با مرورگر به https://192.168.50.1 وارد وب‌اینترفیس شو (برای ساخت Ruleها).
+> حالا از کلاینت LAN با مرورگر به https://10.10.254.1 وارد وب‌اینترفیس شو (برای ساخت Ruleها).
 
 ### 4.2 قوانین Firewall (LAN tab - Web)
 - Anti-Lockout را دست نزن.
@@ -74,3 +74,99 @@ Facilities: firewall, system → Save
 
 ## 5) AD DS + DNS (Windows Server 2025)
 IP ثابت بده:
+- IP:10.10.10.50/24
+- GW:10.10.10.49
+- DNS10.10.10.50
+- PowerShell (به‌عنوان Administrator):
+```powershell
+  Rename-Computer -NewName "DC1" -Restart
+  # پس از ریبوت:
+  Install-WindowsFeature AD-Domain-Services, DNS, DHCP, File-Services -IncludeManagementTools
+
+  $Safe = ConvertTo-SecureString "ChangeMe!123" -AsPlainText -Force
+  Install-ADDSForest -DomainName "corp.local" -DomainNetbiosName "CORP" -SafeModeAdministratorPassword $Safe -Force
+
+پس از Promote و ریبوت، در DNS Manager یک رکورد A برای dc1.corp.local → 192.168.50.10 بساز.
+
+## 6) DHCP روی DC
+DHCP Manager:
+ • Scopes:
+    VLAN10: 10.10.10.2-14
+    VLAN20: 10.10.10.18-30
+    VLAN30: 10.10.10.34-46
+    VLAN40: 10.10.10.50-62
+ • Options: DNS=10.10.10.50, Domain=corp.local
+ • Authorize سرور DHCP و سرویس را Start کن.
+
+## 7) ساختار AD و کاربران
+
+اسکریپت نمونه (ریپو: scripts/Create-AD-Structure.ps1) را اجرا کن:
+.\scripts\Create-AD-Structure.ps1
+OUها (Corp/Users, Computers, Servers, Groups) و کاربر تستی ساخته می‌شود.
+
+## 8) File Server و Map درایوها
+ • پوشه‌ها: D:\Shares\Public ، D:\Shares\Finance
+ • Share:
+ • Public$ → Share: Read برای Everyone | NTFS محدود به گروه‌های لازم
+ • Finance$ → Share: Authenticated Users Full | NTFS: فقط GG_Dept_Finance
+ • GPO برای Map:
+ • User Config → Preferences → Windows Settings → Drive Maps
+ • P: → \\dc1\Public$ | F: → \\dc1\Finance$ (Item-level targeting: گروه مالی)
+
+## 9) Baseline امنیتی با GPO
+ • Audit Policy (Logon/Account Management) Enable
+ • Windows Defender فعال و Update
+ • SMBv1 Disable
+ • NTP: DC به منبع خارجی، کلاینت‌ها از DC
+
+نمونه:
+# همه Auditها را (آزمایشگاهی) فعال کن
+auditpol /set /category:* /success:enable /failure:enable
+# SMBv1 (ویندوز 11/سرور): از طریق Features یا GPO غیرفعال شود
+
+## 10) Join Windows 11 به دامنه
+
+روی کلاینت:
+ • IP از DHCP بگیر.
+ • Settings > System > About > Domain or Workgroup → Join به corp.local.
+ • ریستارت و با کاربر دامنه لاگین کن (مثلاً CORP\alice).
+
+sudo apt update && sudo apt -y install curl tar gnupg apt-transport-https
+curl -sO https://packages.wazuh.com/4.x/wazuh-install.sh
+sudo bash ./wazuh-install.sh -a
+sudo ufw allow 22 && sudo ufw allow 1514/udp && sudo ufw allow 1515/tcp && sudo ufw allow 5601/tcp && sudo ufw enable
+# داشبورد:
+# https://10.10.10.55  (کاربر/رمز اولیه طبق خروجی نصب)
+
+## 12) نصب Agent Wazuh روی ویندوزها
+
+MSI را از داشبورد بگیر یا نصب سایلنت:
+msiexec /i "wazuh-agent-4.x.msi" /qn WAZUH_MANAGER="192.168.50.20" WAZUH_REGISTRATION_SERVER="192.168.50.20" WAZUH_AGENT_NAME="DC1" WAZUH_AGENT_GROUP="windows" WAZUH_PASSWORD="<enrollment_password>"
+net start WazuhSvc
+در داشبورد Wazuh → Agents → Agentها را Approve/Enroll کن.
+EventChannel (Security/System/Application) به‌صورت پیش‌فرض جمع می‌شود.
+
+13) Sysmon
+روی DC و Client:
+sysmon64.exe -i sysmonconfig.xml
+در Wazuh مطمئن شو الگوهای Sysmon فعال است.
+
+## 14) Syslog فایروال → Wazuh
+
+در pfSense (وب): ارسال به 10.10.10.55:514/UDP را فعال کردیم.
+در Wazuh (در صورت نیاز) ossec.conf نمونه:
+<ossec_config>
+  <remote>
+    <connection>syslog</connection>
+    <port>514</port>
+    <protocol>udp</protocol>
+  </remote>
+</ossec_config>
+
+15) تست‌های اعتبارسنجی
+ • DHCP: کلاینت IP دریافت کند.
+ • DNS/Join: nslookup dc1.corp.local OK و Join موفق.
+ • Map Drives: P: و F: با GPO Map شود.
+ • Wazuh Alerts: چند بار رمز اشتباه → هشدار Authentication.
+ • FIM: فایل C:\Windows\System32\drivers\etc\hosts را تغییر بده → هشدار.
+ • pfSense Logs: ترافیک یا Rule hit در داشبورد دیده شود.
