@@ -49,12 +49,11 @@ Built in VMware Workstation and GNS3.
 ---
 
 ## How to Reproduce
-1. Clone the repo or download the documentation.
-2. Follow the Step-by-step.md guide for:
+1. Follow the Step-by-step.md guide for:
    - Network core setup
    - Firewall configuration
    - Wazuh server installation and agent setup
-3. Test and verify connectivity and security alerts.
+2. Test and verify connectivity and security alerts.
 
 ---
 
